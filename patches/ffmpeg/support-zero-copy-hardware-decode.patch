@@ -111,7 +111,7 @@ index cf1177a..f745b7d 100644
  
      bool output_to_window;
      bool got_stream_info;
-@@ -66,20 +101,142 @@ typedef struct OHCodecDecContext {
+@@ -66,20 +101,143 @@ typedef struct OHCodecDecContext {
      int stride;
      int slice_height;
      OH_AVPixelFormat pix_fmt;
@@ -476,7 +476,7 @@ index cf1177a..f745b7d 100644
                                       AV_FIFO_FLAG_AUTO_GROW);
      if (!s->input_queue || !s->output_queue)
          return AVERROR(ENOMEM);
-@@ -395,6 +640,9 @@ static av_cold int oh_decode_close(AVCodecContext *avctx)
+@@ -395,13 +640,32 @@ static av_cold int oh_decode_close(AVCodecContext *avctx)
      OHCodecDecContext *s = avctx->priv_data;
  
      if (s->dec) {
@@ -502,16 +502,14 @@ index cf1177a..f745b7d 100644
 -         * the fly valid.
 -         */
 -        OH_VideoDecoder_Stop(s->dec);
-+        /* Don't Stop here — the decoder must stay alive so that
++        /* Don't Stop here - the decoder must stay alive so that
 +         * FreeOutputBuffer succeeds for buffers still held downstream.
 +         * Stop + Destroy happen in oh_decode_release when the last
 +         * buffer reference is dropped.
 +         */
          av_log(s->dec, AV_LOG_DEBUG, "OH decode close\n");
          s->dec = NULL;
-+    oh_decode_clear_dovi(s);
-+    ff_h2645_packet_uninit(&s->dovi_pkt);
-+    ff_dovi_ctx_unref(&s->dovi_ctx);
+     }
  
      ff_mutex_destroy(&s->input_mutex);
      ff_cond_destroy(&s->input_cond);
@@ -720,7 +718,7 @@ index cf1177a..f745b7d 100644
          ret = oh_decode_send_pkt(avctx, &buffer);
          if (ret < 0)
              return ret;
-@@ -696,6 +983,9 @@ static void oh_decode_flush(AVCodecContext *avctx)
+@@ -696,6 +983,19 @@ static void oh_decode_flush(AVCodecContext *avctx)
  {
      OHCodecDecContext *s = avctx->priv_data;
  
