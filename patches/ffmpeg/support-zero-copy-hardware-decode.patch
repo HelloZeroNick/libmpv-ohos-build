@@ -480,6 +480,10 @@ index cf1177a..f745b7d 100644
      OHCodecDecContext *s = avctx->priv_data;
  
      if (s->dec) {
+-        /* Stop but don't destroy dec directly, to keep hardware frames on
+-         * the fly valid.
+-         */
+-        OH_VideoDecoder_Stop(s->dec);
 +        atomic_store_explicit(&s->accepting_callbacks, false,
 +                              memory_order_release);
 +        oh_decode_invalidate_outputs(s);
@@ -498,10 +502,6 @@ index cf1177a..f745b7d 100644
 +            }
 +        }
 +        ff_mutex_unlock(&s->output_mutex);
--        /* Stop but don't destroy dec directly, to keep hardware frames on
--         * the fly valid.
--         */
--        OH_VideoDecoder_Stop(s->dec);
 +        /* Don't Stop here - the decoder must stay alive so that
 +         * FreeOutputBuffer succeeds for buffers still held downstream.
 +         * Stop + Destroy happen in oh_decode_release when the last
