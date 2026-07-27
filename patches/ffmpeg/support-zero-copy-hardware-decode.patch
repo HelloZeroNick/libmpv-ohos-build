@@ -255,6 +255,7 @@ index cf1177a..f745b7d 100644
 -    OH_AVCodec *dec = (OH_AVCodec *)data;
 +    OHCodecDecRef *ref = (OHCodecDecRef *)data;
 +    OH_AVCodec *dec = ref->dec;
++    OH_VideoDecoder_Stop(dec);
      OH_AVErrCode err = OH_VideoDecoder_Destroy(dec);
      if (err == AV_ERR_OK)
          av_log(NULL, AV_LOG_DEBUG, "Destroy decoder success\n");
@@ -482,13 +483,32 @@ index cf1177a..f745b7d 100644
 +        atomic_store_explicit(&s->accepting_callbacks, false,
 +                              memory_order_release);
 +        oh_decode_invalidate_outputs(s);
-         /* Stop but don't destroy dec directly, to keep hardware frames on
-          * the fly valid.
-          */
-@@ -409,6 +657,9 @@ static av_cold int oh_decode_close(AVCodecContext *avctx)
-     }
- 
-     av_packet_unref(&s->pkt);
++        /* Drain output queue while the decoder is still running so that
++         * OH_VideoDecoder_FreeOutputBuffer succeeds.  Don't call Stop here;
++         * the decoder must stay alive for buffers still held downstream.
++         * Stop + Destroy happen in oh_decode_release when the last buffer
++         * reference is dropped.
++         */
++        ff_mutex_lock(&s->output_mutex);
++        {
++            OHCodecDecQueueItem item;
++            while (av_fifo_read(s->output_queue, &item, 1) >= 0) {
++                if (item.buffer)
++                    OH_VideoDecoder_FreeOutputBuffer(s->dec, item.index);
++            }
++        }
++        ff_mutex_unlock(&s->output_mutex);
+-        /* Stop but don't destroy dec directly, to keep hardware frames on
+-         * the fly valid.
+-         */
+-        OH_VideoDecoder_Stop(s->dec);
++        /* Don't Stop here — the decoder must stay alive so that
++         * FreeOutputBuffer succeeds for buffers still held downstream.
++         * Stop + Destroy happen in oh_decode_release when the last
++         * buffer reference is dropped.
++         */
+         av_log(s->dec, AV_LOG_DEBUG, "OH decode close\n");
+         s->dec = NULL;
 +    oh_decode_clear_dovi(s);
 +    ff_h2645_packet_uninit(&s->dovi_pkt);
 +    ff_dovi_ctx_unref(&s->dovi_ctx);
@@ -707,6 +727,16 @@ index cf1177a..f745b7d 100644
 +    atomic_store_explicit(&s->accepting_callbacks, false,
 +                          memory_order_release);
 +    oh_decode_invalidate_outputs(s);
++    /* Drain output queue before flushing so that queued buffers are freed
++     * while the decoder is still running.
++     */
++    {
++        OHCodecDecQueueItem item;
++        while (av_fifo_read(s->output_queue, &item, 1) >= 0) {
++            if (item.buffer)
++                OH_VideoDecoder_FreeOutputBuffer(s->dec, item.index);
++        }
++    }
      OH_VideoDecoder_Flush(s->dec);
  
      ff_mutex_lock(&s->input_mutex);
