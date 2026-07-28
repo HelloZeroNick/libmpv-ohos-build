@@ -10,6 +10,38 @@ index fb22541f8d..c29899ac03 100644
            packet.h                                                      \
            qsv.h                                                         \
            smpte_436m.h                                                  \
+diff --git a/libavcodec/ohcodec_buffer.h b/libavcodec/ohcodec_buffer.h
+new file mode 100644
+index 0000000000..a1d3d7d181
+--- /dev/null
++++ b/libavcodec/ohcodec_buffer.h
+@@ -0,0 +1,26 @@
++/*
++ * OpenHarmony Codec public output-buffer API
++ *
++ * This file is part of FFmpeg.
++ */
++
++#ifndef AVCODEC_OHCODEC_BUFFER_H
++#define AVCODEC_OHCODEC_BUFFER_H
++
++/** Opaque output token carried by AV_PIX_FMT_OHCODEC frames. */
++typedef struct AVOHCodecBuffer AVOHCodecBuffer;
++
++/**
++ * Return an output buffer to the decoder exactly once.
++ *
++ * If render is non-zero, the decoder queues the buffer to its configured
++ * Surface. Otherwise the buffer is discarded. Calls after the first one are
++ * harmless and return success. A token invalidated by flush/stop is discarded
++ * without calling the codec with a stale output index. A render request for
++ * an already released token returns AVERROR(EALREADY); a render request for a
++ * token invalidated by flush/stop returns AVERROR(ESTALE). Discard requests
++ * remain idempotent.
++ */
++int av_ohcodec_release_buffer(AVOHCodecBuffer *buffer, int render);
++
++#endif /* AVCODEC_OHCODEC_BUFFER_H */
 diff --git a/libavcodec/ohdec.c b/libavcodec/ohdec.c
 index cf1177afcd..306a1157e1 100644
 --- a/libavcodec/ohdec.c
