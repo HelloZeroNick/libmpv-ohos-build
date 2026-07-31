@@ -15,6 +15,7 @@ cd sdk/ohos-sdk
 sudo rm -rf windows/
 sudo rm -rf ohos/
 sudo mv linux ./../
+cd ..
 
 # Extract NDK
 cd linux
