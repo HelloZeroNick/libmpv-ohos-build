@@ -11,7 +11,7 @@ sudo mkdir -p sdk
 sudo tar -C sdk -zxf sdk.tar.gz
 sudo rm sdk.tar.gz
 
-cd sdk
+cd ohos-sdk
 sudo rm -rf windows/
 
 # Extract NDK
