@@ -2,13 +2,11 @@
 
 set -eu
 
-# ffmpeg
+# ffmpeg (dash demuxer 依赖 libxml2, 必须先构建)
+./scripts/libxml2.sh build
 ./scripts/mbedtls.sh build
 ./scripts/dav1d.sh build
 ./scripts/ffmpeg.sh build
-
-# fontconfig
-./scripts/libxml2.sh build
 
 # libass
 ./scripts/fribidi.sh build
