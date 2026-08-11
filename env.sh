@@ -49,9 +49,14 @@ export CXXFLAGS='-fPIC -D__MUSL__=1'
 # 生成指向当前工具链的 cmake toolchain 文件副本
 # (原 ohos.toolchain.cmake 硬编码使用 openharmony/native/llvm,
 #  这里将其替换为 TOOLCHAIN_HOME, 使 cmake 项目如 shaderc 也使用 BiSheng)
+# 注意: 副本不在原目录, 必须同时把 CMAKE_CURRENT_LIST_DIR 替换为绝对路径,
+#       否则 OHOS_SDK_NATIVE / oh-uni-package.json / sdk_native_platforms.cmake
+#       / CMAKE_SYSROOT 等相对路径计算会全部失效。
 export OHOS_TOOLCHAIN_FILE=$DEST/ohos-$(basename $TOOLCHAIN_HOME).toolchain.cmake
 mkdir -p $DEST
-sed "s|\${OHOS_SDK_NATIVE}/llvm|$TOOLCHAIN_HOME|g" \
+sed \
+  -e "s|\${CMAKE_CURRENT_LIST_DIR}|$OHOS_NDK_HOME/native/build/cmake|g" \
+  -e "s|\${OHOS_SDK_NATIVE}/llvm|$TOOLCHAIN_HOME|g" \
   $OHOS_NDK_HOME/native/build/cmake/ohos.toolchain.cmake \
   > $OHOS_TOOLCHAIN_FILE
 echo "CMake toolchain file: $OHOS_TOOLCHAIN_FILE"
