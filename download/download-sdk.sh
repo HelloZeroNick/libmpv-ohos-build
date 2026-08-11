@@ -4,25 +4,37 @@ set -eu
 
 . ./download/deps-version.sh
 
-pushd /
+# HarmonyOS command line tools (API $V_SDK, 含 BiSheng 编译器)
+# 来源: https://github.com/ErBWs/ohos-sdk/releases/tag/$V_SDK
+RELEASE_BASE=https://github.com/ErBWs/ohos-sdk/releases/download/$V_SDK
+FILENAME=ohos-sdk-linux-amd64.tar.gz
 
-sudo wget -qO sdk.tar.gz https://repo.huaweicloud.com/openharmony/os/$V_SDK/ohos-sdk-windows_linux-public.tar.gz
-sudo mkdir -p sdk
-sudo tar -C sdk -zxf sdk.tar.gz
-sudo rm sdk.tar.gz
+sudo mkdir -p /sdk
 
-cd sdk/ohos-sdk
-sudo rm -rf windows/
-sudo rm -rf ohos/
-sudo mv linux ./../
-cd ..
+pushd /sdk
 
-# Extract NDK
-cd linux
-for i in *.zip
-do
-  sudo unzip -q $i
-  sudo rm $i
-done
+if [ ! -d command-line-tools ]; then
+  echo "Downloading HarmonyOS SDK $V_SDK ..."
+  sudo wget -qO $FILENAME.aa $RELEASE_BASE/$FILENAME.aa
+  sudo wget -qO $FILENAME.ab $RELEASE_BASE/$FILENAME.ab
+  sudo wget -qO $FILENAME.sha256 $RELEASE_BASE/$FILENAME.sha256
+
+  # 合并分片并校验
+  sudo bash -c "cat $FILENAME.aa $FILENAME.ab > $FILENAME"
+  sudo sha256sum -c $FILENAME.sha256
+
+  sudo tar -xzf $FILENAME
+  sudo rm -f $FILENAME.aa $FILENAME.ab $FILENAME.sha256 $FILENAME
+fi
+
+# 兼容链接: /sdk/linux -> openharmony (旧脚本路径)
+if [ ! -e /sdk/linux ]; then
+  sudo ln -sfn /sdk/command-line-tools/sdk/default/openharmony /sdk/linux
+fi
+
+# BiSheng 编译器链接
+if [ ! -e /sdk/bisheng ]; then
+  sudo ln -sfn /sdk/command-line-tools/sdk/default/hms/native/BiSheng /sdk/bisheng
+fi
 
 popd

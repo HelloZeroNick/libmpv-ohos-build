@@ -21,7 +21,7 @@ mkdir -p .build
 cd .build
 
 cmake -L \
-  -DCMAKE_TOOLCHAIN_FILE=$OHOS_NDK_HOME/native/build/cmake/ohos.toolchain.cmake \
+  -DCMAKE_TOOLCHAIN_FILE=$OHOS_TOOLCHAIN_FILE \
   -DBUILD_SHARED_LIBS=OFF \
   -DCMAKE_INSTALL_PREFIX=$DEST \
   -DCMAKE_BUILD_TYPE=Release \

@@ -5,8 +5,8 @@ set -eu
 mkdir -p ./libmpv/arm64-build
 
 if [ "$(uname -s)" = "Linux" ]; then
-  if [ ! -d /sdk ]; then
-    echo "Downloading OpenHarmony SDK..."
+  if [ ! -d /sdk/command-line-tools ]; then
+    echo "Downloading HarmonyOS SDK..."
     ./download/download-sdk.sh
     ln -sf ../crossfiles/arm64-crossfile-linux.ini ./libmpv/arm64-crossfile.ini
   fi

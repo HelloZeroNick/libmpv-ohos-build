@@ -2,8 +2,8 @@
 
 set -eu
 
-# OpenHarmony SDK version
-V_SDK=7.0-Beta1
+# HarmonyOS command line tools version (API 26, 含 BiSheng 编译器)
+V_SDK=26.0.0.621
 
 # FFmpeg
 V_MBEDTLS=3.6.4
