@@ -72,8 +72,10 @@ if [ -n "$PGO_MODE" ]; then
       ;;
     use:*)
       PGO_PROFILE="${PGO_MODE#use:}"
-      PGO_CFLAGS="-fprofile-use=$PGO_PROFILE -fprofile-correction"
-      PGO_LDFLAGS="-fprofile-use=$PGO_PROFILE -fprofile-correction"
+      # 注意: 不用 -fprofile-correction (毕昇 clang 15 不支持该选项, 会报
+      # "optimization flag not supported"; meson 用 -Werror 会把警告升级为错误导致构建失败)
+      PGO_CFLAGS="-fprofile-use=$PGO_PROFILE"
+      PGO_LDFLAGS="-fprofile-use=$PGO_PROFILE"
       echo "PGO: use $PGO_PROFILE"
       ;;
     *)
