@@ -18,6 +18,20 @@ on:
         required: true
         type: boolean
         default: false
+      lto:
+        description: 'Enable LTO (-flto, 毕昇增强)'
+        required: true
+        type: boolean
+        default: false
+      pgo:
+        description: 'PGO mode: off / instrument (插桩, 真机采集) / use (使用仓库 profiles/lib.profdata 优化)'
+        required: true
+        type: choice
+        default: 'off'
+        options:
+          - off
+          - instrument
+          - use
 
 permissions:
   contents: write
@@ -37,10 +51,26 @@ jobs:
           pip3 install meson
         shell: bash
 
+      - name: Prepare PGO profile (use mode)
+        if: ${{ inputs.pgo == 'use' }}
+        run: |
+          if [ ! -f "$GITHUB_WORKSPACE/profiles/lib.profdata" ]; then
+            echo "仓库中不存在 profiles/lib.profdata, 请先提交 PGO profile 文件" >&2
+            exit 1
+          fi
+          ls -lh "$GITHUB_WORKSPACE/profiles/lib.profdata"
+        shell: bash
+
       - name: Bundle
         run: |
           sudo chmod +x *.sh */*.sh
-          ./bundle.sh
+          OPT=""
+          if [ "${{ inputs.lto }}" = "true" ]; then OPT="$OPT LTO=1"; fi
+          if [ "${{ inputs.pgo }}" = "instrument" ]; then OPT="$OPT PGO=instrument"; fi
+          if [ "${{ inputs.pgo }}" = "use" ]; then OPT="$OPT PGO=use:$GITHUB_WORKSPACE/profiles/lib.profdata"; fi
+          echo "Build options: $OPT"
+          # shellcheck disable=SC2086
+          env $OPT ./bundle.sh
         shell: bash
 
       - name: Upload Artifact

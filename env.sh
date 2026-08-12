@@ -43,8 +43,50 @@ export OBJDUMP=$TOOLCHAIN_HOME/bin/llvm-objdump
 export OBJCOPY=$TOOLCHAIN_HOME/bin/llvm-objcopy
 export NM=$TOOLCHAIN_HOME/bin/llvm-nm
 export AR=$TOOLCHAIN_HOME/bin/llvm-ar
-export CFLAGS='-fPIC -D__MUSL__=1'
-export CXXFLAGS='-fPIC -D__MUSL__=1'
+# ===== LTO / PGO 优化开关 (默认关闭) =====
+# LTO=1            : 开启链接时优化 -flto (毕昇增强版)
+# PGO=instrument   : PGO 插桩构建, 真机采集 profile 用
+# PGO=use:/path    : 使用已采集的 profile 优化构建 (如 PGO=use:/root/lib.profdata)
+# 用法: LTO=1 ./bundle.sh   或   PGO=instrument ./bundle.sh
+# 注意: PGO 需先 instrument 采集, 再 use 构建; 二者互斥
+if [ "${LTO:-0}" = "1" ]; then
+  export ENABLE_LTO=1
+  LTO_CFLAGS="-flto"
+  echo "LTO: enabled (-flto)"
+else
+  export ENABLE_LTO=0
+  LTO_CFLAGS=""
+fi
+
+export PGO_MODE="${PGO:-}"
+PGO_CFLAGS=""
+PGO_LDFLAGS=""
+if [ -n "$PGO_MODE" ]; then
+  case "$PGO_MODE" in
+    instrument)
+      # 毕昇 PGO 插桩: 运行时通过信号量把计数器写入真机沙箱目录
+      # 真机映射: /data/app/el2/100/base/<bundleName>/files
+      PGO_CFLAGS="-fprofile-generate=/data/storage/el2/base/files"
+      PGO_LDFLAGS="-fprofile-generate=/data/storage/el2/base/files"
+      echo "PGO: instrument (插桩, 需真机采集 profile)"
+      ;;
+    use:*)
+      PGO_PROFILE="${PGO_MODE#use:}"
+      PGO_CFLAGS="-fprofile-use=$PGO_PROFILE -fprofile-correction"
+      PGO_LDFLAGS="-fprofile-use=$PGO_PROFILE -fprofile-correction"
+      echo "PGO: use $PGO_PROFILE"
+      ;;
+    *)
+      echo "Unknown PGO mode: $PGO_MODE (instrument | use:/path/lib.profdata)" >&2
+      exit 1
+      ;;
+  esac
+fi
+
+export LTO_CFLAGS PGO_CFLAGS PGO_LDFLAGS
+
+export CFLAGS="-fPIC -D__MUSL__=1 $LTO_CFLAGS $PGO_CFLAGS"
+export CXXFLAGS="-fPIC -D__MUSL__=1 $LTO_CFLAGS $PGO_CFLAGS"
 
 # 生成指向当前工具链的 cmake toolchain 文件副本
 # (原 ohos.toolchain.cmake 硬编码使用 openharmony/native/llvm,
@@ -60,3 +102,33 @@ sed \
   $OHOS_NDK_HOME/native/build/cmake/ohos.toolchain.cmake \
   > $OHOS_TOOLCHAIN_FILE
 echo "CMake toolchain file: $OHOS_TOOLCHAIN_FILE"
+
+# ===== 生成 crossfile (注入 LTO/PGO 参数) =====
+# 先删除 download.sh 建立的符号链接, 再生成含优化参数的实文件
+# (否则 cp/sed 会跟随链接改写 crossfiles/ 下的源模板)
+# (meson 项目: mpv/libplacebo/dav1d/libxml2/fribidi/freetype/harfbuzz/fontconfig/libass/lcms)
+if [ "$(uname -s)" = "Linux" ]; then
+  CROSSFILE_TEMPLATE=$ROOT_DIR/crossfiles/arm64-crossfile-linux.ini
+else
+  CROSSFILE_TEMPLATE=$ROOT_DIR/crossfiles/arm64-crossfile-macos.ini
+fi
+export CROSSFILE=$ROOT_DIR/libmpv/arm64-crossfile.ini
+mkdir -p $ROOT_DIR/libmpv
+
+rm -f "$CROSSFILE"
+cp "$CROSSFILE_TEMPLATE" "$CROSSFILE"
+
+# 用临时文件 + mv 避免 GNU/BSD sed -i 差异
+if [ "$ENABLE_LTO" = "1" ]; then
+  sed '/^\[built-in options\]/a b_lto = true' "$CROSSFILE" > "$CROSSFILE.tmp" && mv "$CROSSFILE.tmp" "$CROSSFILE"
+  echo "LTO: b_lto = true 注入 $CROSSFILE"
+fi
+if [ -n "$PGO_CFLAGS" ]; then
+  sed -e "s|^c_args = \[|c_args = [$PGO_CFLAGS, |" \
+      -e "s|^cpp_args = \[|cpp_args = [$PGO_CFLAGS, |" "$CROSSFILE" > "$CROSSFILE.tmp" && mv "$CROSSFILE.tmp" "$CROSSFILE"
+fi
+if [ -n "$PGO_LDFLAGS" ]; then
+  sed -e "s|^c_link_args = \[|c_link_args = [$PGO_LDFLAGS, |" \
+      -e "s|^cpp_link_args = \[|cpp_link_args = [$PGO_LDFLAGS, |" "$CROSSFILE" > "$CROSSFILE.tmp" && mv "$CROSSFILE.tmp" "$CROSSFILE"
+fi
+echo "Crossfile: $CROSSFILE (LTO=$ENABLE_LTO, PGO=$PGO_MODE)"

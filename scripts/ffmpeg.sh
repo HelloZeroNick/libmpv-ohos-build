@@ -48,8 +48,8 @@ cd .build
   \
   --enable-cross-compile \
   --cc="$CC" \
-  --extra-cflags="-I$DEST/include" \
-  --extra-ldflags="-L$DEST/lib" \
+  --extra-cflags="-I$DEST/include $LTO_CFLAGS $PGO_CFLAGS" \
+  --extra-ldflags="-L$DEST/lib $LTO_CFLAGS $PGO_LDFLAGS" \
   \
   --disable-everything \
   --enable-avcodec \
