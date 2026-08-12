@@ -27,13 +27,31 @@ pip install -r scripts/basic.requirements.txt
 make -j$CORES lib
 
 # 手动安装库 + 头文件 (等价于顶层 make install 的核心逻辑, 但避免触发 no_test 构建 fuzz)
-mkdir -p $DEST/include $DEST/lib
-cp -rp include/mbedtls $DEST/include/
-cp -rp tf-psa-crypto/drivers/builtin/include/mbedtls $DEST/include/
-mkdir -p $DEST/include/psa
-cp -rp tf-psa-crypto/include/psa $DEST/include/
-cp -RP library/libmbedtls.a $DEST/lib/
-cp -RP library/libmbedx509.a $DEST/lib/
-cp -RP library/libmbedcrypto.a $DEST/lib/
+# mbedtls 3.6.x 是仓库拆分前版本, 头文件在 include/mbedtls + include/psa
+# (tf-psa-crypto/ 目录是 4.0 拆分后的, 3.6.4 不存在, 故容错处理)
+mkdir -p $DEST/include/mbedtls $DEST/include/psa
+cp -rp include/mbedtls/* $DEST/include/mbedtls/ 2>/dev/null || true
+# 兼容旧版含 psa 头文件的布局
+cp -rp include/psa/* $DEST/include/psa/ 2>/dev/null || true
+# 兼容未来若升级到含 tf-psa-crypto 目录的版本
+cp -rp tf-psa-crypto/include/psa/* $DEST/include/psa/ 2>/dev/null || true
+cp -rp tf-psa-crypto/drivers/builtin/include/mbedtls/* $DEST/include/mbedtls/ 2>/dev/null || true
+cp -RP library/libmbedtls.a $DEST/lib/ 2>/dev/null || true
+cp -RP library/libmbedx509.a $DEST/lib/ 2>/dev/null || true
+cp -RP library/libmbedcrypto.a $DEST/lib/ 2>/dev/null || true
+
+# 校验关键文件齐全 (缺失即构建失败, 避免下游 ffmpeg 用残缺头文件)
+for f in \
+  $DEST/include/mbedtls/build_info.h \
+  $DEST/include/psa/crypto.h \
+  $DEST/lib/libmbedtls.a \
+  $DEST/lib/libmbedx509.a \
+  $DEST/lib/libmbedcrypto.a; do
+  if [ ! -f "$f" ]; then
+    echo "ERROR: mbedtls 安装不完整, 缺少 $f" >&2
+    exit 1
+  fi
+done
+echo "mbedtls 安装完成: libmbedtls/libmbedx509/libmbedcrypto + 头文件"
 
 popd
