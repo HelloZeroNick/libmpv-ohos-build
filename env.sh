@@ -118,17 +118,29 @@ mkdir -p $ROOT_DIR/libmpv
 rm -f "$CROSSFILE"
 cp "$CROSSFILE_TEMPLATE" "$CROSSFILE"
 
+# 将 PGO flags 转为 meson 数组元素 (每个参数单引号包裹, 避免 meson 解析错误)
+# 例如: -fprofile-generate=/data/storage/el2/base/files
+#   →    '-fprofile-generate=/data/storage/el2/base/files',
+PGO_CFLAGS_MESON=""
+for f in $PGO_CFLAGS; do
+  PGO_CFLAGS_MESON="$PGO_CFLAGS_MESON '$f',"
+done
+PGO_LDFLAGS_MESON=""
+for f in $PGO_LDFLAGS; do
+  PGO_LDFLAGS_MESON="$PGO_LDFLAGS_MESON '$f',"
+done
+
 # 用临时文件 + mv 避免 GNU/BSD sed -i 差异
 if [ "$ENABLE_LTO" = "1" ]; then
   sed '/^\[built-in options\]/a b_lto = true' "$CROSSFILE" > "$CROSSFILE.tmp" && mv "$CROSSFILE.tmp" "$CROSSFILE"
   echo "LTO: b_lto = true 注入 $CROSSFILE"
 fi
-if [ -n "$PGO_CFLAGS" ]; then
-  sed -e "s|^c_args = \[|c_args = [$PGO_CFLAGS, |" \
-      -e "s|^cpp_args = \[|cpp_args = [$PGO_CFLAGS, |" "$CROSSFILE" > "$CROSSFILE.tmp" && mv "$CROSSFILE.tmp" "$CROSSFILE"
+if [ -n "$PGO_CFLAGS_MESON" ]; then
+  sed -e "s|^c_args = \[|c_args = [$PGO_CFLAGS_MESON |" \
+      -e "s|^cpp_args = \[|cpp_args = [$PGO_CFLAGS_MESON |" "$CROSSFILE" > "$CROSSFILE.tmp" && mv "$CROSSFILE.tmp" "$CROSSFILE"
 fi
-if [ -n "$PGO_LDFLAGS" ]; then
-  sed -e "s|^c_link_args = \[|c_link_args = [$PGO_LDFLAGS, |" \
-      -e "s|^cpp_link_args = \[|cpp_link_args = [$PGO_LDFLAGS, |" "$CROSSFILE" > "$CROSSFILE.tmp" && mv "$CROSSFILE.tmp" "$CROSSFILE"
+if [ -n "$PGO_LDFLAGS_MESON" ]; then
+  sed -e "s|^c_link_args = \[|c_link_args = [$PGO_LDFLAGS_MESON |" \
+      -e "s|^cpp_link_args = \[|cpp_link_args = [$PGO_LDFLAGS_MESON |" "$CROSSFILE" > "$CROSSFILE.tmp" && mv "$CROSSFILE.tmp" "$CROSSFILE"
 fi
 echo "Crossfile: $CROSSFILE (LTO=$ENABLE_LTO, PGO=$PGO_MODE)"
