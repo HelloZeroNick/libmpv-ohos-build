@@ -9,6 +9,9 @@ V_SDK=26.0.0.621
 V_MBEDTLS=3.6.4
 V_DAV1D=1.5.1
 
+# libwebp (mpv 动态截图 webp 编码)
+V_LIBWEBP=v1.4.0
+
 # fontconfig
 V_LIBXML2=v2.15.1
 

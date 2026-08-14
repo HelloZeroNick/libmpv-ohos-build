@@ -22,7 +22,8 @@ cd .build
 
 meson setup .. \
   --cross-file $ROOT_DIR/libmpv/arm64-crossfile.ini \
-  --prefix=$DEST
+  --prefix=$DEST \
+  -Dharfbuzz=disabled
 ninja -j$CORES
 ninja install
 
