@@ -94,6 +94,17 @@ else
   echo "shaderc already exists, skipping."
 fi
 
+# libwebp
+if [ ! -d libwebp ]; then
+  echo "Downloading libwebp..."
+  mkdir libwebp
+  wget -qO libwebp.tar.gz https://github.com/webmproject/libwebp/archive/refs/tags/$V_LIBWEBP.tar.gz
+  tar -C libwebp --strip-components=1 -zxf libwebp.tar.gz
+  rm libwebp.tar.gz
+else
+  echo "libwebp already exists, skipping."
+fi
+
 # ffmpeg
 if [ ! -d ffmpeg ]; then
   echo "Downloading ffmpeg..."

@@ -32,7 +32,9 @@ cd .build
 # - 字幕: ass/ssa/srt/mov_text/webvtt
 # - 协议: file/http/https/tls/tcp (mbedtls 提供 tls; crypto 协议不需要)
 # - 截图: png/mjpeg
-# - 滤镜: 仅保留 lavfi 桥接基础 (PiliPlus OHOS 不使用 lavfi-complex)
+# - 动图: libwebp / libwebp_anim 编码器 + webp muxer (PiliPlus 动态截图)
+# - 滤镜: 仅保留 lavfi 桥接基础 (PiliPlus OHOS 不使用 lavfi-complex);
+#         trim/atrim 为 mpv encode 模式处理 --start/--end 所需
 # =============================================================================
 ../configure \
   --prefix=$DEST \
@@ -50,6 +52,7 @@ cd .build
   --cc="$CC" \
   --extra-cflags="-I$DEST/include $LTO_CFLAGS $PGO_CFLAGS" \
   --extra-ldflags="-L$DEST/lib $LTO_CFLAGS $PGO_LDFLAGS" \
+  --pkg-config-flags=--static \
   \
   --disable-everything \
   --enable-avcodec \
@@ -62,6 +65,7 @@ cd .build
   \
   --enable-ohcodec \
   --enable-libdav1d \
+  --enable-libwebp \
   --enable-mbedtls \
   --enable-libxml2 \
   --disable-vulkan \
@@ -74,16 +78,16 @@ cd .build
   --enable-demuxer=mov,flv,mpegts,mp3,aac,hls,dash \
   --enable-demuxer=ass,ssa,srt,webvtt \
   \
-  --enable-parser=h264,hevc,av1,aac,mpegaudio,ac3,opus,mjpeg \
+  --enable-parser=h264,hevc,av1,aac,mpegaudio,ac3,opus,mjpeg,vp8 \
   \
   --enable-bsf=h264_mp4toannexb,hevc_mp4toannexb,aac_adtstoasc,extract_extradata \
   \
   --enable-protocol=file,http,https,tls,tcp \
   \
-  --enable-encoder=png,mjpeg \
-  --enable-muxer=png,mjpeg \
+  --enable-encoder=png,mjpeg,libwebp,libwebp_anim \
+  --enable-muxer=png,mjpeg,webp \
   \
-  --enable-filter=aresample,aformat,format,scale,anull,atrim,asetpts,setpts,volume \
+  --enable-filter=aresample,aformat,format,scale,anull,atrim,asetpts,setpts,volume,trim \
   --enable-filter=abuffer,abuffersink,buffersink,buffer
 make -j$CORES
 make install
