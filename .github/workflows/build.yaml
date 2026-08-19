@@ -32,6 +32,11 @@ on:
           - off
           - instrument
           - use
+      extra_opt:
+        description: 'Enable extra compiler opts (fp opt, partial-inlining, tail-dup, Bsymbolic, inline-plt; BiSheng enhanced)'
+        required: true
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -68,6 +73,7 @@ jobs:
           if [ "${{ inputs.lto }}" = "true" ]; then OPT="$OPT LTO=1"; fi
           if [ "${{ inputs.pgo }}" = "instrument" ]; then OPT="$OPT PGO=instrument"; fi
           if [ "${{ inputs.pgo }}" = "use" ]; then OPT="$OPT PGO=use:$GITHUB_WORKSPACE/profiles/lib.profdata"; fi
+          if [ "${{ inputs.extra_opt }}" = "true" ]; then OPT="$OPT EXTRA_OPT=1"; fi
           echo "Build options: $OPT"
           # shellcheck disable=SC2086
           env $OPT ./bundle.sh
