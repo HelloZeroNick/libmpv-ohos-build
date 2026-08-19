@@ -50,8 +50,8 @@ cd .build
   \
   --enable-cross-compile \
   --cc="$CC" \
-  --extra-cflags="-I$DEST/include $LTO_CFLAGS $PGO_CFLAGS" \
-  --extra-ldflags="-L$DEST/lib $LTO_CFLAGS $PGO_LDFLAGS" \
+  --extra-cflags="-I$DEST/include $EXTRA_CFLAGS $LTO_CFLAGS $PGO_CFLAGS" \
+  --extra-ldflags="-L$DEST/lib $EXTRA_LDFLAGS $LTO_CFLAGS $PGO_LDFLAGS" \
   --pkg-config-flags=--static \
   \
   --disable-everything \
