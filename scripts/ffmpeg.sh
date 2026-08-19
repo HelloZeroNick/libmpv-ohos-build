@@ -71,7 +71,7 @@ cd .build
   --disable-vulkan \
   \
   --enable-decoder=h264,h264_oh,hevc,hevc_oh,libdav1d,mjpeg,png \
-  --enable-decoder=aac,aac_latm,mp3,opus,ac3,eac3 \
+  --enable-decoder=aac,aac_latm,mp3,opus,ac3,eac3,flac \
   --enable-decoder=pcm_s16le,pcm_s16be,pcm_s32le,pcm_f32le,pcm_u8 \
   --enable-decoder=ass,ssa,subrip,mov_text,webvtt,text \
   \
