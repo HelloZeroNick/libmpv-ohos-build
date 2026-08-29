@@ -18,7 +18,10 @@ for dep_path in "${PATCHES[@]}"; do
     echo "Patching $dep..."
     for patch in "${patches[@]}"; do
       echo "Applying $patch..."
-      if git apply "$ROOT/$patch" 2> /dev/null; then
+      if git apply --reverse --check "$ROOT/$patch" 2> /dev/null; then
+        # 反向能干净套用 => 已经打过了。构建目录复用时必须幂等。
+        echo "SKIP (already applied): $patch"
+      elif git apply "$ROOT/$patch" 2> /dev/null; then
         echo "OK $patch"
       elif [[ " ${OPTIONAL_PATCHES[*]} " == *" $patch "* ]]; then
         # 已知相对当前 fork 源码已失效, 且构建已禁用该特性, 跳过不中断
