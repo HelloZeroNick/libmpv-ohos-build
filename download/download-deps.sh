@@ -106,9 +106,13 @@ else
 fi
 
 # ffmpeg
+# FFMPEG_REPO/FFMPEG_REF mirror MPV_REPO/MPV_REF below: the HarmonyOS dynamic
+# HDR metadata patches (prefix SEI extraction in ohdec.c) live in a fork, and
+# a local clone works too:
+#   FFMPEG_REPO=/path/to/ffmpeg FFMPEG_REF=feat-ohos-hdr ./download.sh
 if [ ! -d ffmpeg ]; then
-  echo "Downloading ffmpeg..."
-  git -c advice.detachedHead=false clone -q --depth 1 -b $V_FFMPEG https://github.com/cnoim/FFmpeg.git ffmpeg > /dev/null
+  echo "Downloading ffmpeg from ${FFMPEG_REPO:-https://github.com/cnoim/FFmpeg.git} (${FFMPEG_REF:-$V_FFMPEG})..."
+  git -c advice.detachedHead=false clone -q --depth 1 -b "${FFMPEG_REF:-$V_FFMPEG}" "${FFMPEG_REPO:-https://github.com/cnoim/FFmpeg.git}" ffmpeg > /dev/null
 else
   echo "ffmpeg already exists, skipping."
 fi
