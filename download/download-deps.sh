@@ -141,9 +141,12 @@ else
 fi
 
 # mpv
+# MPV_REPO/MPV_REF allow building against a fork, which is how the HarmonyOS
+# HDR patches get in without republishing the upstream branch. A local clone
+# works too: MPV_REPO=/path/to/mpv MPV_REF=feat-ohos-hdr ./download.sh
 if [ ! -d mpv ]; then
-  echo "Downloading mpv..."
-  git -c advice.detachedHead=false clone -q --depth 1 -b $V_MPV https://github.com/cnoim/mpv.git mpv > /dev/null
+  echo "Downloading mpv from ${MPV_REPO:-https://github.com/cnoim/mpv.git} (${MPV_REF:-$V_MPV})..."
+  git -c advice.detachedHead=false clone -q --depth 1 -b "${MPV_REF:-$V_MPV}" "${MPV_REPO:-https://github.com/cnoim/mpv.git}" mpv > /dev/null
 else
   echo "mpv already exists, skipping."
 fi
