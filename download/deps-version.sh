@@ -27,8 +27,8 @@ V_LCMS=lcms2.17
 V_SHADERC=v2025.4
 
 # mpv
-V_FFMPEG=feat-ohos
+V_FFMPEG=feat-ohos-hdr
 V_LIBASS=0.17.4
 V_LIBPLACEBO=v7.360.1
 V_LUA=5.2.4
-V_MPV=feat-ohos-0.41.0
+V_MPV=feat-ohos-hdr

@@ -111,8 +111,8 @@ fi
 # a local clone works too:
 #   FFMPEG_REPO=/path/to/ffmpeg FFMPEG_REF=feat-ohos-hdr ./download.sh
 if [ ! -d ffmpeg ]; then
-  echo "Downloading ffmpeg from ${FFMPEG_REPO:-https://github.com/cnoim/FFmpeg.git} (${FFMPEG_REF:-$V_FFMPEG})..."
-  git -c advice.detachedHead=false clone -q --depth 1 -b "${FFMPEG_REF:-$V_FFMPEG}" "${FFMPEG_REPO:-https://github.com/cnoim/FFmpeg.git}" ffmpeg > /dev/null
+  echo "Downloading ffmpeg from ${FFMPEG_REPO:-https://github.com/p1nbored/FFmpeg.git} (${FFMPEG_REF:-$V_FFMPEG})..."
+  git -c advice.detachedHead=false clone -q --depth 1 -b "${FFMPEG_REF:-$V_FFMPEG}" "${FFMPEG_REPO:-https://github.com/p1nbored/FFmpeg.git}" ffmpeg > /dev/null
 else
   echo "ffmpeg already exists, skipping."
 fi
@@ -149,8 +149,8 @@ fi
 # HDR patches get in without republishing the upstream branch. A local clone
 # works too: MPV_REPO=/path/to/mpv MPV_REF=feat-ohos-hdr ./download.sh
 if [ ! -d mpv ]; then
-  echo "Downloading mpv from ${MPV_REPO:-https://github.com/cnoim/mpv.git} (${MPV_REF:-$V_MPV})..."
-  git -c advice.detachedHead=false clone -q --depth 1 -b "${MPV_REF:-$V_MPV}" "${MPV_REPO:-https://github.com/cnoim/mpv.git}" mpv > /dev/null
+  echo "Downloading mpv from ${MPV_REPO:-https://github.com/p1nbored/mpv.git} (${MPV_REF:-$V_MPV})..."
+  git -c advice.detachedHead=false clone -q --depth 1 -b "${MPV_REF:-$V_MPV}" "${MPV_REPO:-https://github.com/p1nbored/mpv.git}" mpv > /dev/null
 else
   echo "mpv already exists, skipping."
 fi
