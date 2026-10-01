@@ -25,8 +25,11 @@ cd .build
 # - 视频: h264/hevc OHOS 硬解 (h264_oh/hevc_oh, 走 ohcodec) + 软解回退
 #         av1 仅软解 (libdav1d), OHOS 平台无 av1 硬解实现
 #         vp9/vp8/vpx 已移除 (B站不使用 vp9)
-# - 音频: aac(含LATM)/mp3/opus/ac3/eac3 + pcm 基础 (B站直播+点播主流音频)
-#         已移除: av3a_oh (Audio Vivid, 不需要), dca/flac/alac/vorbis (B站不用)
+# - 音频: aac(含LATM)/mp3/opus/ac3/eac3/flac + pcm 基础 (B站直播+点播主流音频)
+#         flac 必须保留: B站 Hi-Res 无损音轨 (dash audio id 30251) 就是 fMP4
+#         封装的 FLAC，而 PiliPlus 默认音质就是 Hi-Res (Pref.defaultAudioQa)，
+#         缺了这个解码器，凡是提供 Hi-Res 的视频都只有画面没有声音
+#         已移除: av3a_oh (Audio Vivid, 不需要), dca/alac/vorbis (B站不用)
 # - 直播: http-flv (flv demuxer), http-hls->ts (hls+mpegts demuxer),
 #         dash-fmp4 (dash+mov demuxer, 需 libxml2)
 # - 字幕: ass/ssa/srt/mov_text/webvtt
@@ -71,14 +74,14 @@ cd .build
   --disable-vulkan \
   \
   --enable-decoder=h264,h264_oh,hevc,hevc_oh,libdav1d,mjpeg,png \
-  --enable-decoder=aac,aac_latm,mp3,opus,ac3,eac3 \
+  --enable-decoder=aac,aac_latm,mp3,opus,ac3,eac3,flac \
   --enable-decoder=pcm_s16le,pcm_s16be,pcm_s32le,pcm_f32le,pcm_u8 \
   --enable-decoder=ass,ssa,subrip,mov_text,webvtt,text \
   \
   --enable-demuxer=mov,flv,mpegts,mp3,aac,hls,dash \
   --enable-demuxer=ass,ssa,srt,webvtt \
   \
-  --enable-parser=h264,hevc,av1,aac,mpegaudio,ac3,opus,mjpeg,vp8 \
+  --enable-parser=h264,hevc,av1,aac,mpegaudio,ac3,opus,mjpeg,vp8,flac \
   \
   --enable-bsf=h264_mp4toannexb,hevc_mp4toannexb,aac_adtstoasc,extract_extradata \
   \
