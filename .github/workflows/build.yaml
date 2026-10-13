@@ -73,6 +73,10 @@ jobs:
           env $OPT ./bundle.sh
         shell: bash
 
+      - name: Host tests
+        run: ./tests/run.sh
+        shell: bash
+
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
