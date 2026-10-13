@@ -8,6 +8,8 @@
 #  - test_dovi_hdr: video/dovi_hdr.c, the luminance of Dolby Vision levels 1
 #    and 3 as libplacebo's own mapping takes it, and the static HDR metadata
 #    of levels 6 and 9;
+#  - test_dovi_tone_map: video/dovi_tone_map.c, Dolby's tone curve, through
+#    libplacebo's tone mapping;
 #  - test_ohos_window: video/out/ohos_common.c with the NativeWindow stubbed
 #    out. It needs the configuration of a finished libmpv build (bundle.sh)
 #    and the OHOS SDK headers.
@@ -65,16 +67,22 @@ cc "${CFLAGS[@]}" -o "$OUT/test_dovi_hdr" \
   "$ROOT_DIR/tests/test_dovi_hdr.c" "$MPV/video/dovi_hdr.c" \
   "${INCLUDES[@]}" "${LIBS[@]}"
 
+cc "${CFLAGS[@]}" -o "$OUT/test_dovi_tone_map" \
+  "$ROOT_DIR/tests/test_dovi_tone_map.c" "$MPV/video/dovi_tone_map.c" \
+  "${INCLUDES[@]}" "${LIBS[@]}"
+
 # GCC does not know the clang availability attributes of the SDK headers.
 cc "${CFLAGS[@]}" -D_GNU_SOURCE '-D__availability__(...)=' \
   -o "$OUT/test_ohos_window" \
   "$ROOT_DIR/tests/test_ohos_window.c" "$MPV/video/out/ohos_hdr_vivid.c" \
-  "$MPV/video/dovi_hdr.c" "$MPV/ta/ta.c" "$MPV/ta/ta_talloc.c" \
+  "$MPV/video/dovi_hdr.c" "$MPV/video/dovi_tone_map.c" \
+  "$MPV/ta/ta.c" "$MPV/ta/ta_talloc.c" \
   "$MPV/ta/ta_utils.c" \
   "${INCLUDES[@]}" -I"$MPV/.build" -idirafter "$SYSROOT" "${LIBS[@]}"
 
 status=0
 "$OUT/test_vivid" || status=1
 "$OUT/test_dovi_hdr" || status=1
+"$OUT/test_dovi_tone_map" || status=1
 "$OUT/test_ohos_window" || status=1
 exit $status

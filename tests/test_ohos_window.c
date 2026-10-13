@@ -18,6 +18,7 @@
 #include <libplacebo/shaders/colorspace.h>
 
 #include "test_util.h"
+#include "video/dovi_tone_map.h"
 
 // The mpv services ohos_common.c relies on.
 struct mp_log { int unused; };
@@ -209,16 +210,48 @@ static struct pl_color_space draw(struct test_vo *t, struct mp_image *mpi,
     return target.color;
 }
 
-// The hint mpv builds for a target peak (--target-peak) below the source's:
-// the light levels are capped at it.
+// The colourspace hint vo_gpu_next builds from a stream (with the default
+// --target-colorspace-hint-mode=target): the stream's own metadata with the
+// target peak (--target-peak, 0 for none) in place of its mastering peak, the
+// content light levels capped at it only when the mastering peak is above it.
 static struct pl_color_space with_peak(struct pl_color_space source, float peak)
 {
     struct pl_color_space hint = source;
-    hint.hdr.max_luma = peak;
-    if (!hint.hdr.max_cll || hint.hdr.max_cll > peak)
-        hint.hdr.max_cll = peak;
-    hint.hdr.max_fall = 0;
+    if (peak)
+        hint.hdr.max_luma = peak;
+    if (!hint.hdr.max_cll)
+        hint.hdr.max_cll = hint.hdr.max_luma;
+    if (source.hdr.max_luma > hint.hdr.max_luma) {
+        if (!hint.hdr.max_cll || hint.hdr.max_luma < hint.hdr.max_cll)
+            hint.hdr.max_cll = hint.hdr.max_luma;
+        hint.hdr.max_fall = 0;
+    }
+    if (hint.hdr.max_cll && hint.hdr.max_fall > hint.hdr.max_cll)
+        hint.hdr.max_fall = 0;
     return hint;
+}
+
+// Everything the NativeWindow was told about HDR, to compare two outputs.
+struct window {
+    int32_t type;
+    OH_NativeBuffer_StaticMetadata stat;
+    uint8_t dyn[OHOS_VIVID_MAX_SIZE];
+    size_t dyn_size;
+};
+
+static struct window window_now(void)
+{
+    struct window w = {.type = win.type, .stat = win.stat,
+                       .dyn_size = win.dyn_size};
+    memcpy(w.dyn, win.dyn, win.dyn_size);
+    return w;
+}
+
+static bool same_window(const struct window *a, const struct window *b)
+{
+    return a->type == b->type &&
+           !memcmp(&a->stat, &b->stat, sizeof(a->stat)) &&
+           a->dyn_size == b->dyn_size && !memcmp(a->dyn, b->dyn, a->dyn_size);
 }
 
 static struct mp_image_params pq_params(float mastering, float cll, float fall)
@@ -429,6 +462,13 @@ static void test_dolby_vision(void)
     CHECK(abs(dyn_max() - pq_code(1000)) <= 2, "peak %d vs %d", dyn_max(),
           pq_code(1000));
     CHECK(dyn_avg() <= pq_code(100) && dyn_avg() > 0, "avg %d", dyn_avg());
+
+    // With Dolby's curve, which vo_gpu_next maps Dolby Vision by, the metadata
+    // follows that curve: this shot has room for its mid tones, which stay.
+    color_map.tone_mapping_function = &mp_dovi_tone_map;
+    draw(t, &img, 3, with_peak(img.params.color, 1000));
+    CHECK(abs(dyn_avg() - pq_code(100)) <= 1, "avg %d vs %d", dyn_avg(),
+          pq_code(100));
     av_buffer_unref(&sd.buf);
     free_vo(t);
 }
@@ -491,7 +531,7 @@ static void test_tone_map_logged(void)
 
     draw(t, &img, 2, with_peak(img.params.color, 1000));
     char want[64];
-    snprintf(want, sizeof(want), ", tone mapped from avg %d max %d\n",
+    snprintf(want, sizeof(want), ", tone mapped (spline) from avg %d max %d\n",
              pq_code(150), pq_code(3000));
     CHECK(strstr(vivid_log, want), "\"%s\" lacks \"%s\"", vivid_log, want);
     av_buffer_unref(&sd.buf);
@@ -525,6 +565,182 @@ static void test_hdr10plus(void)
     CHECK(dyn_max() == pq_code(600), "peak %d vs %d", dyn_max(), pq_code(600));
     CHECK(dyn_avg() < pq_code(10), "avg %d is not a dark scene", dyn_avg());
     av_buffer_unref(&sd.buf);
+    free_vo(t);
+}
+
+// --target-peak only ever brings a stream down to it. A stream no brighter
+// than the target reaches the window exactly as without one ("match video
+// brightness"): its own static and dynamic metadata, nothing stretched to the
+// target. libplacebo's target keeps the target peak, so that whatever turns
+// out brighter than the metadata says is still compressed into it.
+static void test_dim_stream_not_stretched(void)
+{
+    static const struct {
+        const char *name;
+        float mastering, cll, fall;
+        float dovi_max; // a Dolby Vision RPU with this level 1 peak
+        bool vivid;     // the stream's own HDR Vivid metadata
+        bool untouched; // libplacebo maps nothing, by the metadata alone
+    } streams[] = {
+        {"HDR10", 1000, 800, 200, .untouched = true},
+        {"HDR10 without MaxCLL", 1000, 0, 0, .untouched = true},
+        // Graded on a brighter display than its content reaches: libplacebo
+        // leaves it alone once it has measured it.
+        {"HDR10 mastered brighter", 4000, 1500, 50},
+        {"HDR10 reaching the target", 4000, 1600, 50},
+        {"Dolby Vision", 1000, 1000, 400, .dovi_max = 800, .untouched = true},
+        {"HDR Vivid", 1000, 1000, 300, .vivid = true, .untouched = true},
+    };
+    for (int i = 0; i < MP_ARRAY_SIZE(streams); i++) {
+        const char *name = streams[i].name;
+        struct mp_image img = {.params = pq_params(streams[i].mastering,
+                                                   streams[i].cll,
+                                                   streams[i].fall)};
+        struct mp_ff_side_data sd = {0};
+        AVDynamicHDRVivid vivid;
+        if (streams[i].dovi_max) {
+            sd = (struct mp_ff_side_data){AV_FRAME_DATA_DOVI_METADATA,
+                                          dovi_buf(100, streams[i].dovi_max)};
+            img.params.color.hdr.max_pq_y = pq(streams[i].dovi_max);
+            img.params.color.hdr.avg_pq_y = pq(100);
+        }
+        if (streams[i].vivid) {
+            sd = (struct mp_ff_side_data){AV_FRAME_DATA_DYNAMIC_HDR_VIVID,
+                                          vivid_buf(&vivid)};
+            img.params.color.hdr.max_pq_y = pq(400);
+            img.params.color.hdr.avg_pq_y = pq(60);
+        }
+        if (sd.buf) {
+            img.ff_side_data = &sd;
+            img.num_ff_side_data = 1;
+        }
+
+        struct test_vo *t = new_vo(OHOS_HDR_MODE_AUTO);
+        draw(t, &img, 1, with_peak(img.params.color, 0));
+        struct window own = window_now();
+        free_vo(t);
+
+        t = new_vo(OHOS_HDR_MODE_AUTO);
+        struct pl_color_space target =
+            draw(t, &img, 1, with_peak(img.params.color, 1600));
+        struct window mapped = window_now();
+        CHECK(same_window(&own, &mapped), "%s: mastering %.0f vs %.0f, MaxCLL "
+              "%.0f vs %.0f, MaxFALL %.0f vs %.0f, dynamic peak %d vs %d", name,
+              mapped.stat.smpte2086.maxLuminance,
+              own.stat.smpte2086.maxLuminance,
+              mapped.stat.cta861.maxContentLightLevel,
+              own.stat.cta861.maxContentLightLevel,
+              mapped.stat.cta861.maxFrameAverageLightLevel,
+              own.stat.cta861.maxFrameAverageLightLevel,
+              (mapped.dyn[5] & 0xf) << 8 | mapped.dyn[6],
+              (own.dyn[5] & 0xf) << 8 | own.dyn[6]);
+        CHECK(target.hdr.max_luma == 1600, "%s: target peak %f", name,
+              target.hdr.max_luma);
+        CHECK(!streams[i].untouched ||
+              pl_tone_map_params_noop(&t->vo.ohos->tone),
+              "%s: tone mapped", name);
+        free_vo(t);
+        av_buffer_unref(&sd.buf);
+    }
+}
+
+// A stream brighter than the target is compressed into it, and described so.
+static void test_bright_stream_compressed(void)
+{
+    struct test_vo *t = new_vo(OHOS_HDR_MODE_AUTO);
+    struct mp_image img = {.params = pq_params(4000, 0, 0)};
+    draw(t, &img, 1, with_peak(img.params.color, 1600));
+    CHECK(win.stat.smpte2086.maxLuminance == 1600 &&
+          win.stat.cta861.maxContentLightLevel == 1600 &&
+          win.stat.cta861.maxFrameAverageLightLevel == 0,
+          "static metadata: %f %f %f", win.stat.smpte2086.maxLuminance,
+          win.stat.cta861.maxContentLightLevel,
+          win.stat.cta861.maxFrameAverageLightLevel);
+    CHECK(dyn_max() == pq_code(1600), "dynamic peak %d", dyn_max());
+    CHECK(!pl_tone_map_params_noop(&t->vo.ohos->tone), "not tone mapped");
+    free_vo(t);
+}
+
+// libplacebo measures a stream it maps to a target peak (--hdr-compute-peak).
+// Where the stream turns out brighter than its metadata says, what it measured
+// bounds the window's light levels, until the next seek or stream.
+static void test_measured_peak(void)
+{
+    struct test_vo *t = new_vo(OHOS_HDR_MODE_AUTO);
+    struct mp_image img = {.params = pq_params(1000, 0, 0)};
+    struct pl_color_space hint = with_peak(img.params.color, 1600);
+    const OH_NativeBuffer_StaticMetadata *md = &win.stat;
+
+    draw(t, &img, 1, hint);
+    CHECK(md->cta861.maxContentLightLevel == 1000, "MaxCLL %f",
+          md->cta861.maxContentLightLevel);
+
+    // Brighter than labelled, still within the target: passed untouched.
+    vo_ohos_set_measured_peak(&t->vo, pq(1200));
+    draw(t, &img, 2, hint);
+    CHECK(fabsf(md->cta861.maxContentLightLevel - 1200) < 1 &&
+          md->smpte2086.maxLuminance == 1000, "MaxCLL %f, mastering %f",
+          md->cta861.maxContentLightLevel, md->smpte2086.maxLuminance);
+
+    // Brighter than the target: compressed into it.
+    vo_ohos_set_measured_peak(&t->vo, pq(4000));
+    draw(t, &img, 3, hint);
+    CHECK(md->cta861.maxContentLightLevel == 1600 &&
+          md->smpte2086.maxLuminance == 1600, "MaxCLL %f, mastering %f",
+          md->cta861.maxContentLightLevel, md->smpte2086.maxLuminance);
+    CHECK(dyn_max() == pq_code(1600), "dynamic peak %d", dyn_max());
+
+    // The brightest so far holds for the rest of the stream.
+    vo_ohos_set_measured_peak(&t->vo, pq(500));
+    draw(t, &img, 4, hint);
+    CHECK(md->cta861.maxContentLightLevel == 1600, "MaxCLL %f after a dimmer "
+          "scene", md->cta861.maxContentLightLevel);
+
+    // libplacebo measures afresh after a seek...
+    vo_ohos_reset(&t->vo);
+    draw(t, &img, 5, hint);
+    CHECK(md->cta861.maxContentLightLevel == 1000, "MaxCLL %f after a seek",
+          md->cta861.maxContentLightLevel);
+
+    // ...and for a new stream.
+    vo_ohos_set_measured_peak(&t->vo, pq(4000));
+    struct mp_image other = img;
+    other.params.w = 1920;
+    draw(t, &other, 6, hint);
+    CHECK(md->cta861.maxContentLightLevel == 1000, "MaxCLL %f for a new stream",
+          md->cta861.maxContentLightLevel);
+
+    // Dolby Vision and HDR Vivid carry each frame's own peak, which libplacebo
+    // maps them by instead of measuring them.
+    struct mp_image own_peak = img;
+    own_peak.params.color.hdr.max_pq_y = pq(1200);
+    own_peak.params.color.hdr.avg_pq_y = pq(100);
+    draw(t, &own_peak, 7, hint);
+    CHECK(fabsf(md->cta861.maxContentLightLevel - 1200) < 1 &&
+          md->smpte2086.maxLuminance == 1000, "MaxCLL %f, mastering %f for a "
+          "frame's own peak", md->cta861.maxContentLightLevel,
+          md->smpte2086.maxLuminance);
+    free_vo(t);
+}
+
+// Asked to expand streams (--inverse-tone-mapping), libplacebo maps them up to
+// the target, which the window then describes.
+static void test_inverse_tone_mapping(void)
+{
+    struct test_vo *t = new_vo(OHOS_HDR_MODE_AUTO);
+    color_map.inverse_tone_mapping = true;
+    struct mp_image img = {.params = pq_params(1000, 800, 200)};
+    // vo_gpu_next's hint takes the target's light levels for it.
+    struct pl_color_space hint = with_peak(img.params.color, 1600);
+    hint.hdr.max_cll = 1600;
+    hint.hdr.max_fall = 0;
+
+    draw(t, &img, 1, hint);
+    CHECK(win.stat.smpte2086.maxLuminance == 1600 &&
+          win.stat.cta861.maxContentLightLevel == 1600,
+          "mastering %f, MaxCLL %f", win.stat.smpte2086.maxLuminance,
+          win.stat.cta861.maxContentLightLevel);
+    CHECK(!pl_tone_map_params_noop(&t->vo.ohos->tone), "not expanded");
     free_vo(t);
 }
 
@@ -563,6 +779,10 @@ int main(void)
     test_dolby_vision_logged();
     test_tone_map_logged();
     test_hdr10plus();
+    test_dim_stream_not_stretched();
+    test_bright_stream_compressed();
+    test_measured_peak();
+    test_inverse_tone_mapping();
     test_modes();
     return report();
 }
