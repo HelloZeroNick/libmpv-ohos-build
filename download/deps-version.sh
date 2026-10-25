@@ -31,4 +31,5 @@ V_FFMPEG=feat-ohos-hdr
 V_LIBASS=0.17.4
 V_LIBPLACEBO=v7.360.1
 V_LUA=5.2.4
-V_MPV=feat-ohos-hdr
+# mpv: HelloZeroNick fork, HDR patches + surface geometry fix
+V_MPV=feat-ohos-surface-geometry
