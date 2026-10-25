@@ -87,8 +87,19 @@ fi
 
 export LTO_CFLAGS PGO_CFLAGS PGO_LDFLAGS
 
-export CFLAGS="-fPIC -D__MUSL__=1 $LTO_CFLAGS $PGO_CFLAGS"
-export CXXFLAGS="-fPIC -D__MUSL__=1 $LTO_CFLAGS $PGO_CFLAGS"
+if [ "${EXTRA_OPT:-0}" = "1" ]; then
+  EXTRA_CFLAGS="-mllvm --enable-partial-inlining -mllvm --tail-dup-placement -ffp-contract=on"
+  EXTRA_LDFLAGS="-Wl,-mllvm,--enable-partial-inlining -Wl,-mllvm,--tail-dup-placement -Wl,--Bsymbolic-functions -Wl,--aarch64-inline-plt"
+  echo "Extra opt: enabled (fp opt, partial-inlining, tail-dup, Bsymbolic, inline-plt)"
+else
+  EXTRA_CFLAGS=""
+  EXTRA_LDFLAGS=""
+fi
+
+export EXTRA_CFLAGS EXTRA_LDFLAGS
+
+export CFLAGS="-fPIC -D__MUSL__=1 $EXTRA_CFLAGS $LTO_CFLAGS $PGO_CFLAGS"
+export CXXFLAGS="-fPIC -D__MUSL__=1 $EXTRA_CFLAGS $LTO_CFLAGS $PGO_CFLAGS"
 
 # 生成指向当前工具链的 cmake toolchain 文件副本
 # (原 ohos.toolchain.cmake 硬编码使用 openharmony/native/llvm,
@@ -145,4 +156,21 @@ if [ -n "$PGO_LDFLAGS_MESON" ]; then
   sed -e "s|^c_link_args = \[|c_link_args = [$PGO_LDFLAGS_MESON |" \
       -e "s|^cpp_link_args = \[|cpp_link_args = [$PGO_LDFLAGS_MESON |" "$CROSSFILE" > "$CROSSFILE.tmp" && mv "$CROSSFILE.tmp" "$CROSSFILE"
 fi
-echo "Crossfile: $CROSSFILE (LTO=$ENABLE_LTO, PGO=$PGO_MODE)"
+EXTRA_CFLAGS_MESON=""
+for f in $EXTRA_CFLAGS; do
+  EXTRA_CFLAGS_MESON="$EXTRA_CFLAGS_MESON '$f',"
+done
+if [ -n "$EXTRA_CFLAGS_MESON" ]; then
+  sed -e "s|^c_args = \[|c_args = [$EXTRA_CFLAGS_MESON |" \
+      -e "s|^cpp_args = \[|cpp_args = [$EXTRA_CFLAGS_MESON |" "$CROSSFILE" > "$CROSSFILE.tmp" && mv "$CROSSFILE.tmp" "$CROSSFILE"
+fi
+
+EXTRA_LDFLAGS_MESON=""
+for f in $EXTRA_LDFLAGS; do
+  EXTRA_LDFLAGS_MESON="$EXTRA_LDFLAGS_MESON '$f',"
+done
+if [ -n "$EXTRA_LDFLAGS_MESON" ]; then
+  sed -e "s|^c_link_args = \[|c_link_args = [$EXTRA_LDFLAGS_MESON |" \
+      -e "s|^cpp_link_args = \[|cpp_link_args = [$EXTRA_LDFLAGS_MESON |" "$CROSSFILE" > "$CROSSFILE.tmp" && mv "$CROSSFILE.tmp" "$CROSSFILE"
+fi
+echo "Crossfile: $CROSSFILE (LTO=$ENABLE_LTO, PGO=$PGO_MODE, EXTRA_OPT=${EXTRA_OPT:-0})"
