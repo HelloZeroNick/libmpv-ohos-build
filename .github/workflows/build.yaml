@@ -52,7 +52,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt install -y gperf
+          sudo apt install -y gperf libxml2
           pip3 install meson
         shell: bash
 
