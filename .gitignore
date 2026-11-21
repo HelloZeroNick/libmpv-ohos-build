@@ -2,3 +2,4 @@
 libmpv
 **/.DS_Store
 libmpv_aarch64.zip
+tests/.host

@@ -106,9 +106,14 @@ else
 fi
 
 # ffmpeg
+# FFMPEG_REPO/FFMPEG_REF mirror MPV_REPO/MPV_REF below: the HarmonyOS dynamic
+# HDR metadata patches (prefix SEI extraction in ohdec.c) and the OHCodec
+# output-buffer accounting live in HelloZeroNick's feat-ohos fork, which also
+# carries the release/9.1 baseline. A local clone works too:
+#   FFMPEG_REPO=/path/to/ffmpeg FFMPEG_REF=feat-ohos ./download.sh
 if [ ! -d ffmpeg ]; then
-  echo "Downloading ffmpeg..."
-  git -c advice.detachedHead=false clone -q --depth 1 -b $V_FFMPEG https://github.com/cnoim/FFmpeg.git ffmpeg > /dev/null
+  echo "Downloading ffmpeg from ${FFMPEG_REPO:-https://github.com/HelloZeroNick/FFmpeg.git} (${FFMPEG_REF:-$V_FFMPEG})..."
+  git -c advice.detachedHead=false clone -q --depth 1 -b "${FFMPEG_REF:-$V_FFMPEG}" "${FFMPEG_REPO:-https://github.com/HelloZeroNick/FFmpeg.git}" ffmpeg > /dev/null
 else
   echo "ffmpeg already exists, skipping."
 fi
@@ -141,9 +146,13 @@ else
 fi
 
 # mpv
+# MPV_REPO/MPV_REF allow building against a fork, which is how the HarmonyOS
+# HDR patches and the surface-geometry fix get in without republishing the
+# upstream branch. A local clone works too:
+#   MPV_REPO=/path/to/mpv MPV_REF=feat-ohos-surface-geometry ./download.sh
 if [ ! -d mpv ]; then
-  echo "Downloading mpv..."
-  git -c advice.detachedHead=false clone -q --depth 1 -b $V_MPV https://github.com/cnoim/mpv.git mpv > /dev/null
+  echo "Downloading mpv from ${MPV_REPO:-https://github.com/HelloZeroNick/mpv.git} (${MPV_REF:-$V_MPV})..."
+  git -c advice.detachedHead=false clone -q --depth 1 -b "${MPV_REF:-$V_MPV}" "${MPV_REPO:-https://github.com/HelloZeroNick/mpv.git}" mpv > /dev/null
 else
   echo "mpv already exists, skipping."
 fi

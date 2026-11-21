@@ -21,3 +21,13 @@ ohos sdk is automatically downloaded on Linux / WSL, but you need to manually do
 chmod +x *.sh */*.sh
 ./bundle.sh
 ```
+
+## Test
+
+Host-side tests for the HarmonyOS HDR code. Run them after a build
+(`./bundle.sh`): besides the sources `./download.sh` fetches, they use the
+OHOS SDK headers and the configuration of the libmpv build:
+
+```shell
+./tests/run.sh
+```
