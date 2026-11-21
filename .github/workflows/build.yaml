@@ -69,7 +69,9 @@ jobs:
       - name: Bundle
         run: |
           sudo chmod +x *.sh */*.sh
-          OPT=""
+          # 临时：workflow_dispatch 的输入被远端旧 schema 拦住（422 pgo enum），
+          # 因此通过 pull_request 触发，并在此固定本次构建的优化开关。
+          OPT="LTO=1 EXTRA_OPT=1"
           if [ "${{ inputs.lto }}" = "true" ]; then OPT="$OPT LTO=1"; fi
           if [ "${{ inputs.pgo }}" = "instrument" ]; then OPT="$OPT PGO=instrument"; fi
           if [ "${{ inputs.pgo }}" = "use" ]; then OPT="$OPT PGO=use:$GITHUB_WORKSPACE/profiles/lib.profdata"; fi
