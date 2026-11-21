@@ -33,6 +33,9 @@ cd .build
 # - 直播: http-flv (flv demuxer), http-hls->ts (hls+mpegts demuxer),
 #         dash-fmp4 (dash+mov demuxer, 需 libxml2)
 # - 字幕: ass/ssa/srt/mov_text/webvtt
+#   FFmpeg 里 mov_text 解码器的组件名是 movtext（无下划线），名字写错时
+#   configure 只 warn "did not match anything" 而不报错，MP4 内嵌字幕会
+#   静默不出。ssa 没有独立的 demuxer，ass 那个同时吃 .ass 和 .ssa。
 # - 协议: file/http/https/tls/tcp (mbedtls 提供 tls; crypto 协议不需要)
 # - 截图: png/mjpeg
 # - 动图: libwebp / libwebp_anim 编码器 + webp muxer (PiliPlus 动态截图)
@@ -76,10 +79,10 @@ cd .build
   --enable-decoder=h264,h264_oh,hevc,hevc_oh,libdav1d,mjpeg,png \
   --enable-decoder=aac,aac_latm,mp3,opus,ac3,eac3,flac \
   --enable-decoder=pcm_s16le,pcm_s16be,pcm_s32le,pcm_f32le,pcm_u8 \
-  --enable-decoder=ass,ssa,subrip,mov_text,webvtt,text \
+  --enable-decoder=ass,ssa,subrip,movtext,webvtt,text \
   \
   --enable-demuxer=mov,flv,mpegts,mp3,aac,hls,dash \
-  --enable-demuxer=ass,ssa,srt,webvtt \
+  --enable-demuxer=ass,srt,webvtt \
   \
   --enable-parser=h264,hevc,av1,aac,mpegaudio,ac3,opus,mjpeg,vp8,flac \
   \

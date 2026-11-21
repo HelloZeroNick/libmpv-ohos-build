@@ -27,7 +27,10 @@ V_LCMS=lcms2.17
 V_SHADERC=v2025.4
 
 # mpv
-V_FFMPEG=feat-ohos-hdr
+# FFmpeg: HelloZeroNick fork, feat-ohos (release/9.1 基线 + ohcodec HDR 元数据
+# 与输出 buffer 计数)。原先指向 p1nbored/feat-ohos-hdr，那是 release/5.1
+# 路线（libavcodec 62）；换到本 fork 后是 libavcodec 63。
+V_FFMPEG=feat-ohos
 V_LIBASS=0.17.4
 V_LIBPLACEBO=v7.360.1
 V_LUA=5.2.4
